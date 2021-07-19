@@ -1,1 +1,1 @@
-web: node fetchLinks.js
+worker: node fetchLinks.js

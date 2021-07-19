@@ -39,7 +39,7 @@ async function main() {
       if (Number(i) === linkList.length - 1) {
         anyName(arr);
       }
-    }, 1000 * i);
+    }, 2000 * i);
   }
 }
 
@@ -50,7 +50,7 @@ function anyName(arr) {
     setTimeout(async () => {
       const data = await getGridData(arr[i]);
       console.log(data);
-    }, 1000 * i);
+    }, 2000 * i);
   }
 }
 

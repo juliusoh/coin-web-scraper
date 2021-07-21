@@ -4,8 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon app.js",
-    "worker": "node fetchLinks.js"
+    "start": "nodemon app.js"
   },
   "author": "Julius Oh",
   "license": "ISC",

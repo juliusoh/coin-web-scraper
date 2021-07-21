@@ -14,38 +14,92 @@ async function main() {
   const request = await fetch("https://www.pcgs.com/coinfacts");
   const text = await request.text();
   const $ = cheerio.load(text);
-  const linkList = $(".row.coin-list")
-    .find("a")
+  // const linkList = $(".row.coin-list")
+  //   .find("a")
+  //   .toArray()
+  //   .map((el) => {
+  //     const list = $(el).attr("href");
+  //     const homeUrl = "https://www.pcgs.com";
+  //     return homeUrl + list;
+  //   });
+
+  const linkList = {};
+  const categoryName = $(".row.coin-list .box").toArray().forEach(box => {
+    const header = $(box).find("a.text-default").html()
+    const urls = $(box)
+    .find("ul li a")
     .toArray()
     .map((el) => {
       const list = $(el).attr("href");
       const homeUrl = "https://www.pcgs.com";
       return homeUrl + list;
     });
+    linkList[header] = urls
+  })
+
+
+  // category/property is key, value is array of links,
 
   let arr = [];
 
-  if (linkList.length === 0) {
+  if (Object.keys(linkList).length === 0) {
     console.error("Blocked :(");
   }
-  for (let i in linkList) {
-    const url = linkList[i];
-    setTimeout(async () => {
-      const resp = await fetch(url);
-      const text = await resp.text();
-      const debug = getLinkData(url, text);
-      arr = [...arr, ...debug];
 
-      if (Number(i) === linkList.length - 1) {
-        anyName(arr);
+  // loop through object
+  let counter = 0;
+  const totalNumber = Object.values(linkList).reduce((accum, currentValue) => {
+    return Number(accum) + Number(currentValue.length)
+  }, 0)
+
+
+
+  for (const category in linkList) {
+    const arrayOfLinks = linkList[category];
+
+    // category : url
+    for (let url of arrayOfLinks) {
+      console.log(arrayOfLinks)
+      counter++;
+      setTimeout(async () => {
+        //
+        const response = await fetch(url);
+        const text = await response.text();
+        const linkData = getLinkData(url, text, category);
+        // execute fetches, store the data, then 1 fetch at a time again
+        // flatten array
+        arr = [...arr, ...linkData];
+
+      // to not do 2 fetch requests at the same time
+      if (counter === totalNumber) {
+        apiRequest(arr);
       }
-    }, 2000 * i);
+
+      }, 2000 * (counter))
+    }
+
   }
+
+
+  // for (let i in linkList) {
+  //   const url = linkList[i];
+  //   setTimeout(async () => {
+  //     const resp = await fetch(url);
+  //     const text = await resp.text();
+  //     const debug = getLinkData(url, text);
+  //     arr = [...arr, ...debug];
+
+  //     if (Number(i) === linkList.length - 1) {
+  //       anyName(arr);
+  //     }
+  //   }, 2000 * i);
+  // }
 }
 
 main();
 
-function anyName(arr) {
+// because they blocked too much
+function apiRequest(arr) {
   for (let i in arr) {
     setTimeout(async () => {
       const data = await getGridData(arr[i]);
@@ -54,7 +108,7 @@ function anyName(arr) {
   }
 }
 
-function getLinkData(url, data) {
+function getLinkData(url, data, category) {
   const $ = cheerio.load(data);
   const linkList = $(".row.cf-cat-list, .link-list.no-margin")
     .find("a")
@@ -66,6 +120,7 @@ function getLinkData(url, data) {
       return {
         specNo,
         coinName,
+        category
       };
     });
   if (linkList.length === 0) {
@@ -74,7 +129,8 @@ function getLinkData(url, data) {
   return linkList;
 }
 
-async function getGridData({ specNo, coinName }) {
+
+async function getGridData({ specNo, coinName, category }) {
   try {
     const form = new FormData();
     form.append("specNo", specNo);
@@ -96,13 +152,16 @@ async function getGridData({ specNo, coinName }) {
       return { GradeName, PopulationCount };
     });
 
+
     const coinData = {
       specNo,
       coinName,
+      category,
       array,
     };
 
-    const newCoin = new Coin(coinData);
+    if (array.length != 0) {
+      const newCoin = new Coin(coinData);
     newCoin.save(function (err, result) {
       if (err) {
         console.log(err);
@@ -110,6 +169,8 @@ async function getGridData({ specNo, coinName }) {
         console.log(result);
       }
     });
+    }
+
   } catch (error) {
     console.log(error);
   }

@@ -4,13 +4,14 @@ const FormData = require("form-data");
 const Coin = require("./coinModel");
 const connectDB = require("./db");
 const dotenv = require("dotenv");
+const request = require("request");
 
 dotenv.config();
 connectDB();
 // sync happens in order
 // async result depends on another
 async function main() {
-  await Coin.deleteOldData()
+  await Coin.deleteOldData();
   const request = await fetch("https://www.pcgs.com/coinfacts");
   const text = await request.text();
   const $ = cheerio.load(text);
@@ -24,19 +25,20 @@ async function main() {
   //   });
 
   const linkList = {};
-  const categoryName = $(".row.coin-list .box").toArray().forEach(box => {
-    const header = $(box).find("a.text-default").html()
-    const urls = $(box)
-    .find("ul li a")
+  const categoryName = $(".row.coin-list .box")
     .toArray()
-    .map((el) => {
-      const list = $(el).attr("href");
-      const homeUrl = "https://www.pcgs.com";
-      return homeUrl + list;
+    .forEach((box) => {
+      const header = $(box).find("a.text-default").html();
+      const urls = $(box)
+        .find("ul li a")
+        .toArray()
+        .map((el) => {
+          const list = $(el).attr("href");
+          const homeUrl = "https://www.pcgs.com";
+          return homeUrl + list;
+        });
+      linkList[header] = urls;
     });
-    linkList[header] = urls
-  })
-
 
   // category/property is key, value is array of links,
 
@@ -49,17 +51,15 @@ async function main() {
   // loop through object
   let counter = 0;
   const totalNumber = Object.values(linkList).reduce((accum, currentValue) => {
-    return Number(accum) + Number(currentValue.length)
-  }, 0)
-
-
+    return Number(accum) + Number(currentValue.length);
+  }, 0);
 
   for (const category in linkList) {
     const arrayOfLinks = linkList[category];
 
     // category : url
     for (let url of arrayOfLinks) {
-      console.log(arrayOfLinks)
+      console.log(arrayOfLinks);
       counter++;
       setTimeout(async () => {
         //
@@ -67,19 +67,17 @@ async function main() {
         const text = await response.text();
         const linkData = getLinkData(url, text, category);
         // execute fetches, store the data, then 1 fetch at a time again
+
         // flatten array
         arr = [...arr, ...linkData];
 
-      // to not do 2 fetch requests at the same time
-      if (counter === totalNumber) {
-        apiRequest(arr);
-      }
-
-      }, 2000 * (counter))
+        // to not do 2 fetch requests at the same time
+        if (counter === totalNumber) {
+          apiRequest(arr);
+        }
+      }, 2000 * counter);
     }
-
   }
-
 
   // for (let i in linkList) {
   //   const url = linkList[i];
@@ -97,6 +95,8 @@ async function main() {
 }
 
 main();
+
+
 
 // because they blocked too much
 function apiRequest(arr) {
@@ -117,9 +117,15 @@ function getLinkData(url, data, category) {
       const list = $(el).attr("href").split("/");
       const specNo = list.pop();
       const coinName = list.pop();
+      const realCoinName = request(`https://www.pcgs.com/coinfacts/coin/${coinName}/${specNo}`, (error, response, html) => {
+        const $ = cheerio.load(html);
+        const realCoinName = $("h1").text();
+        return realCoinName
+      })
       return {
         specNo,
         coinName,
+
         category
       };
     });
@@ -128,6 +134,18 @@ function getLinkData(url, data, category) {
   }
   return linkList;
 }
+
+async function getCoinName(coinName, specNo) {
+  const request = await fetch(
+    `https://www.pcgs.com/coinfacts/coin/${coinName}/${specNo}`
+  );
+  const text = await request.text();
+  const $ = cheerio.load(text);
+  const realCoinName = $("h1").html();
+  return realCoinName
+
+}
+
 
 
 async function getGridData({ specNo, coinName, category }) {
@@ -156,6 +174,7 @@ async function getGridData({ specNo, coinName, category }) {
     const coinData = {
       specNo,
       coinName,
+      realCoinName,
       category,
       array,
     };

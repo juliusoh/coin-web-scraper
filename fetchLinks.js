@@ -15,6 +15,7 @@ async function main() {
   const request = await fetch("https://www.pcgs.com/coinfacts");
   const text = await request.text();
   const $ = cheerio.load(text);
+
   // const linkList = $(".row.coin-list")
   //   .find("a")
   //   .toArray()
@@ -59,7 +60,6 @@ async function main() {
 
     // category : url
     for (let url of arrayOfLinks) {
-      console.log(arrayOfLinks);
       counter++;
       setTimeout(async () => {
         //
@@ -73,82 +73,89 @@ async function main() {
 
         // to not do 2 fetch requests at the same time
         if (counter === totalNumber) {
-          apiRequest(arr);
+          getNames(arr);
         }
       }, 2000 * counter);
     }
   }
-
-  // for (let i in linkList) {
-  //   const url = linkList[i];
-  //   setTimeout(async () => {
-  //     const resp = await fetch(url);
-  //     const text = await resp.text();
-  //     const debug = getLinkData(url, text);
-  //     arr = [...arr, ...debug];
-
-  //     if (Number(i) === linkList.length - 1) {
-  //       anyName(arr);
-  //     }
-  //   }, 2000 * i);
-  // }
 }
 
 main();
 
+function getNames(array) {
+  for (let i in array) {
+    const { coinUrl } = array[i];
+    setTimeout(async () => {
+      const fullName = await getCoinName(coinUrl);
 
+      array[i] = { ...array[i], fullName };
+      if (Number(i) === array.length - 1) {
+        apiRequest(array);
+        console.log("getNames is done");
+      }
+    }, 2000 * i);
+  }
+}
 
 // because they blocked too much
 function apiRequest(arr) {
   for (let i in arr) {
     setTimeout(async () => {
       const data = await getGridData(arr[i]);
-      console.log(data);
     }, 2000 * i);
   }
 }
 
 function getLinkData(url, data, category) {
   const $ = cheerio.load(data);
-  const linkList = $(".row.cf-cat-list, .link-list.no-margin")
-    .find("a")
-    .toArray()
-    .map((el) => {
-      const list = $(el).attr("href").split("/");
-      const specNo = list.pop();
-      const coinName = list.pop();
-      const realCoinName = request(`https://www.pcgs.com/coinfacts/coin/${coinName}/${specNo}`, (error, response, html) => {
-        const $ = cheerio.load(html);
-        const realCoinName = $("h1").text();
-        return realCoinName
-      })
-      return {
-        specNo,
-        coinName,
-
-        category
-      };
-    });
-  if (linkList.length === 0) {
-    console.log(url);
+  const getCorrectLinks = ($) => {
+    const linkList = $(".link-list.no-margin")
+      .find("a")
+      .toArray()
+      .map((el) => {
+        const list = $(el).attr("href").split("/");
+        const coinUrl = $(el).attr("href");
+        console.log(coinUrl);
+        const specNo = list.pop();
+        const coinName = list.pop();
+        return {
+          specNo,
+          coinName,
+          category,
+          coinUrl,
+        };
+      });
+    if (linkList.length === 0) {
+      console.log(url);
+    }
+    return linkList;
+  };
+  if ($(".row.cf-cat-list").toArray().length > 0) {
+    const stupidLinks = $(".row.cf-cat-list").find("a").toArray();
+    for (let i in stupidLinks) {
+      setTimeout(async () => {
+        const stupidLinkUrl = $(stupidLinks[i]).attr("href");
+        const stupidReq = await fetch(`https://www.pcgs.com${stupidLinkUrl}`);
+        const text = await stupidReq.text();
+        const $ = cheerio.load(text);
+        getCorrectLinks($);
+      }, 2000 * i);
+    }
+  } else {
+    return getCorrectLinks($);
   }
-  return linkList;
 }
 
-async function getCoinName(coinName, specNo) {
-  const request = await fetch(
-    `https://www.pcgs.com/coinfacts/coin/${coinName}/${specNo}`
-  );
+async function getCoinName(url) {
+  const request = await fetch(`https://www.pcgs.com${url}`);
   const text = await request.text();
   const $ = cheerio.load(text);
-  const realCoinName = $("h1").html();
-  return realCoinName
+  const realCoinName = $("#detailImages h1.no-margin").html();
 
+  return realCoinName;
 }
 
-
-
-async function getGridData({ specNo, coinName, category }) {
+async function getGridData({ specNo, coinName, category, fullName }) {
   try {
     const form = new FormData();
     form.append("specNo", specNo);
@@ -170,26 +177,23 @@ async function getGridData({ specNo, coinName, category }) {
       return { GradeName, PopulationCount };
     });
 
-
     const coinData = {
       specNo,
+      fullName,
       coinName,
-      realCoinName,
       category,
       array,
     };
 
     if (array.length != 0) {
       const newCoin = new Coin(coinData);
-    newCoin.save(function (err, result) {
-      if (err) {
-        console.log(err);
-      } else {
-        console.log(result);
-      }
-    });
+      newCoin.save(function (err, result) {
+        if (err) {
+          console.log("error", err);
+        } else {
+        }
+      });
     }
-
   } catch (error) {
     console.log(error);
   }

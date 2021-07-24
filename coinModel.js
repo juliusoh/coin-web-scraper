@@ -10,6 +10,10 @@ const coinSchema = mongoose.Schema(
       type: String,
       required: true,
     },
+    fullName: {
+      type: String,
+      required: false,
+    },
     category: {
       type: String,
     },
@@ -28,15 +32,15 @@ const coinSchema = mongoose.Schema(
 // utility general function not unique
 coinSchema.statics.deleteOldData = async function () {
   // delete old data
-  const date = new Date(Date.now());
-  date.setHours(0, 0, 0, 0);
+  const today = new Date(Date.now());
+  today.setHours(0, 0, 0, 0);
   const oneWeekAgo = new Date(Date.now());
   const pastDate = oneWeekAgo.getDate() - 7;
   oneWeekAgo.setDate(pastDate);
 
   await this.deleteMany({
     createdAt: {
-      $gte: date,
+      $gte: today,
     }, // 16 < 17 wont delete it prevent duplicates for one day
   });
   await this.deleteMany({

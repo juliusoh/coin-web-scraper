@@ -15,13 +15,13 @@ async function getCoinName() {
 getCoinName()
 
 
-async function getCoinName(coinDashName, specNo) {
-  const request = await fetch(
-    `https://www.pcgs.com/coinfacts/coin/${coinDashName}/${specNo}`
-  );
-  const text = await request.text();
-  const $ = cheerio.load(text);
-  const coinName = $("h1").html();
-  return coinName;
-}
+// async function getCoinName(coinDashName, specNo) {
+//   const request = await fetch(
+//     `https://www.pcgs.com/coinfacts/coin/${coinDashName}/${specNo}`
+//   );
+//   const text = await request.text();
+//   const $ = cheerio.load(text);
+//   const coinName = $("h1").html();
+//   return coinName;
+// }
 
